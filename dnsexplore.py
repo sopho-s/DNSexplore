@@ -158,6 +158,37 @@ class DNSMessage:
         self.authority: list[ResourceRecord] = authority
         self.additional: list[ResourceRecord] = additional
 
+class Domain:
+    def __init__(self, name: str, ip4: bytes = None, ip6: bytes = None):
+        self.name: str = name
+        self.ip4: bytes = ip4
+        self.ip6: bytes = ip6
+    def __str__(self):
+        return f"Name: {self.name}, IPv4: {GetIPv4(self.ip4)}, IPv6: {GetIPv6(self.ip6)}"
+
+class DomainList:
+    def __init__(self):
+        self.domains: list[Domain] = []
+    def AddDomain(self, domain: Domain):
+        isin = False
+        for index, currdomain in enumerate(self.domains):
+            if currdomain.name == domain.name:
+                if domain.ip4 != None:
+                    self.domains[index].ip4 = domain.ip4
+                if domain.ip6 != None:
+                    self.domains[index].ip6 = domain.ip6
+                isin = True
+        if not isin:
+            self.domains.append(domain)
+    def __iter__(self):
+        self.index = 0
+        return self
+    def __next__(self):
+        if self.index == len(self.domains):
+            raise StopIteration
+        self.index += 1
+        return self.domains[self.index-1]
+            
 
 
 type requesttype = RequestType
@@ -290,6 +321,7 @@ def GetIPv6(ip: bytes) -> str:
 
 
 args: list[str] = sys.argv[1:]
+domains: DomainList = DomainList()
 
 if len(args) > 3 or len(args) < 2:
     print("Usage: dnsexplore.py <IP> <FQDN> <OPTIONAL PORT>")
@@ -307,6 +339,12 @@ else:
         readableanswer: DNSMessage = InterpretDNSMessage(answer)
         for answer in readableanswer.answers:
             if answer.type == A:
-                print(f"Name: {answer.name}\t\tType: A\t\tIP: {GetIPv4(answer.rdata)}")
+                domains.AddDomain(Domain(answer.name, ip4=answer.rdata))
+                print(f"Name: {answer.name}    Type: A    IP: {GetIPv4(answer.rdata)}")
             if answer.type == AAAA:
-                print(f"Name: {answer.name}\t\tType: AAAA\t\tIP: {GetIPv6(answer.rdata)}")
+                domains.AddDomain(Domain(answer.name, ip6=answer.rdata))
+                print(f"Name: {answer.name}    Type: AAAA    IP: {GetIPv6(answer.rdata)}")
+        print("\n")
+        print("Domains found:")
+        for domain in domains:
+            print(domain)
